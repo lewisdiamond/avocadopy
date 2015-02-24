@@ -70,6 +70,10 @@ class Base(object):
         db = self._get_db(db)
         db[self._collection].delete(self._id)
 
+    def save(self, db=None):
+        db = self._get_db(db)
+        db[self._collection].save(self._doc())
+
 
 class Field(object):
 
