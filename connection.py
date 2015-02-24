@@ -1,7 +1,10 @@
 import requests
 import database
 import base
-from urllib.parse import urljoin
+try:
+    from urllib.parse import urljoin
+except ImportError:
+    from urlparse import urljoin
 
 
 class Connection(base.List, base.Attr):

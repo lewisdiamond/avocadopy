@@ -1,6 +1,10 @@
 import requests
-from urllib.parse import urljoin
 import base
+try:
+    from urllib.parse import urljoin
+except ImportError:
+    from urlparse import urljoin
+
 
 class Collection(base.List, base.Attr):
 
