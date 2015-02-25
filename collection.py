@@ -5,6 +5,42 @@ try:
 except ImportError:
     from urlparse import urljoin
 
+class DocumentListIterator(object):
+    def __init__(self, ids, collection):
+        self.ids = ids
+        self.iterator = self.ids.__iter__()
+        self.collection = collection
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        item = next(self.iterator)
+        return self.collection[item]
+
+    next = __next__
+
+
+class DocumentList(object):
+
+    def __init__(self, ids, collection):
+        self.ids = ids
+        self.collection = collection
+
+    def __getitem__(self, key):
+        if type(key) is int:
+            return self.collection[self.ids[key]]
+        else:
+            raise TypeError("List indices must be integers")
+
+    def __len__(self):
+        return len(self.ids)
+
+    def __iter__(self):
+        return DocumentListIterator(self.ids, self.collection)
+
+    def __contains__(self, item_id):
+        return item_id in self.ids
 
 class Collection(base.List, base.Attr):
 
@@ -75,10 +111,13 @@ class Collection(base.List, base.Attr):
 
 
     def documents(self):
-        """ Get a list of available databases names
-        :returns: A list of database names
+        """ Get a list of all documents in the collection
+        :returns: An iterable DocumentList object
         """
-        return self._list(self.session, self._list_documents, lambda x: [ i for i in x['documents']])
+        items = self._list(self.session, self._list_documents, lambda x: x['documents'])
+        return DocumentList(items, self)
+
+    getall = documents
 
     def __contains__(self, item):
         """ used for 'doc' in collection
@@ -109,3 +148,4 @@ class Collection(base.List, base.Attr):
             raise IOError(resp.json())
 
         ## 304 and 412 not yet supported
+

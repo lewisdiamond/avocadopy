@@ -53,6 +53,9 @@ class TestCollection(unittest.TestCase):
     def test_get_documents(self):
         docs = self.col.documents()
         self.assertIn(self.bran, docs)
+        self.assertEqual(docs[0]['name'], "Bran")
+        for d in docs:
+            self.assertIsNotNone(d['name'])
 
     def test_get_document(self):
         doc = self.col[self.bran]
