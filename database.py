@@ -1,5 +1,5 @@
 import requests
-from collection import Collection
+from collection import Collection, Edge
 import base
 try:
     from urllib.parse import urljoin
@@ -38,7 +38,7 @@ class Database(base.List, base.Attr):
         :returns: a list of available collection names
 
         """
-        return self._list(self.session, self._list_collections, lambda x: [ n for n in x['names'].keys() ] )
+        return self._list(self.session, self._list_collections, lambda x: x['names'] )
 
 
     def __getitem__(self, item):
@@ -50,6 +50,9 @@ class Database(base.List, base.Attr):
         """
         c = self.collections()
         if item in c:
-            return Collection(self.url, self.session, item)
+            if c[item]["type"] is 2:
+                return Collection(self.url, self.session, item)
+            elif c[item]["type"] is 3:
+                return Edge(self.url, self.session, item)
         else:
-            raise KeyError("This collection does not exist")
+            raise KeyError("This collection does not exist", item)

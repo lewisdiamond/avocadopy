@@ -8,10 +8,10 @@ class List(object):
     def _list(session, req, extractor):
         resp = session.send(req)
         ret = []
-        if resp.status_code is 200:
+        if resp.status_code > 199 and resp.status_code < 300:
             ret = extractor(resp.json())
         else:
-            raise IOError("Unable to fetch data from the server")
+            raise IOError("Unable to fetch data from the server", resp.json())
         return ret
 
 

@@ -57,7 +57,7 @@ class Collection(base.List, base.Attr):
         """
 
         self.url = url
-        self.session = requests.Session()
+        self.session = session
         self.name = name
         self._list_documents = requests.Request('GET',
             urljoin(url,
@@ -67,12 +67,14 @@ class Collection(base.List, base.Attr):
         ).prepare()
 
     def _make_id(self, id):
-        if not id.startswith(self.name):
+        if id and not id.startswith(self.name):
             id = self.name + '/' + id
         return id
 
 
-    def save(self, doc):
+    def save(self, doc, _key=None, full_resp=False):
+        if _key is not None:
+            doc['_key'] = _key
         req = requests.Request('POST',
             urljoin(self.url,
                     self._url_document
@@ -82,13 +84,17 @@ class Collection(base.List, base.Attr):
         ).prepare()
         resp = self.session.send(req)
         if resp.status_code >= 200 and resp.status_code < 300:
-            return resp.json()['_id']
+            json_ = resp.json()
+            del json_['error']
+            return json_['_id'] if not full_resp else json_
         elif resp.status_code == 400:
             raise ValueError("Invalid document")
         elif resp.status_code == 404:
             raise ValueError("Can't insert document in invalid collection")
+        else:
+            raise IOError(resp.json())
 
-    def update(self, id, doc):
+    def update(self, id, doc, full_resp=False):
         resp = requests.request('PUT',
                                 urljoin(self.url,
                                         self._url_document) + '/' + self._make_id(id),
@@ -97,6 +103,8 @@ class Collection(base.List, base.Attr):
                                 )
         if resp.status_code > 299:
             raise IOError(resp.status_code, resp.json()['errorMessage'])
+        else:
+            return resp.json() if full_resp else resp.json()['_id']
 
 
     def delete(self, id):
@@ -149,3 +157,80 @@ class Collection(base.List, base.Attr):
 
         ## 304 and 412 not yet supported
 
+    def example(self, example, skip=None, limit=None):
+        body = {'collection': self.name,
+                'example': example,
+                'skip': skip,
+                'limit': limit
+                }
+        resp = requests.request('PUT', urljoin(self.url, '_api/simple/by-example'), json=body)
+        if resp.status_code < 300 and resp.status_code > 199:
+            return resp.json()['result']
+        else:
+            raise IOError("Failed to fetch documents by example: ", example, resp.json()['errorMessage'])
+
+class Edge(base.List, base.Attr):
+
+    """A collection"""
+    _url_edges = "_api/edges/"
+    _url_edge = "_api/edge/"
+
+    def __init__(self, url, session, name):
+        """Initialize the connection
+
+        :url: url to arango
+        :session: the session to access the db
+        :name: the name of the collection
+
+        """
+        self.session = session
+        self.url = url
+        self._edges_url = urljoin(url, self._url_edges) + name
+        self._edge_url = urljoin(url, self._url_edge)
+        self.name = name
+
+
+    def get(self, item, direction='any'):
+        req = requests.Request('GET'
+                               , self._edges_url
+                               , params={'vertex':item,'direction':direction}
+                               ).prepare()
+        items = self._list(self.session, req, lambda x: x['edges'])
+        return items
+
+
+    def save(self, _from, to, doc=None, full_resp=False):
+        resp = requests.request('POST'
+                                , self._edge_url
+                                , params={
+                                    'collection': self.name,
+                                    'from': _from,
+                                    'to':to
+                                }
+                                ,json=doc)
+
+        if resp.status_code > 299:
+            raise IOError("Failed to create edge", resp.json()["errorMessage"])
+        else:
+            ret = resp.json()
+            del ret['error']
+            return ret if full_resp else ret['_id']
+
+    def delete(self, item):
+        resp = requests.request('DELETE',
+                                self._edge_url + item)
+        if resp.status_code > 299:
+            raise IOError("Failed to delete edge", resp.json()["errorMessage"])
+        else:
+            return self
+
+
+    def __getitem__(self, item):
+        """Get a database object
+
+        :item: the document handle
+        :returns: a document (dict)
+        :raises: KeyError
+
+        """
+        return self.get(item)
