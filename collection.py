@@ -80,7 +80,7 @@ class Collection(base.List, base.Attr):
                     self._url_document
                     )
             , json=doc
-            , params={'collection':self.name}
+            , params={'collection':self.name, 'createCollection': True}
         ).prepare()
         resp = self.session.send(req)
         if resp.status_code >= 200 and resp.status_code < 300:
