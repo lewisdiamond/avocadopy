@@ -11,6 +11,7 @@ class Database(base.List, base.Attr):
     """ArangoDB database"""
 
     _url_list_collections = "_api/collection"
+    _url_list_edges = "_api/edge"
 
     def __init__(self, url, session, name):
         """Initializes the db object
@@ -32,6 +33,15 @@ class Database(base.List, base.Attr):
                     )
             , params={'excludeSystem':'true'}
         ).prepare()
+
+
+    def createCollection(self, name, options = {'type':2}):
+        options['name'] = name
+        resp = requests.request('POST', url_list_collections, options)
+
+    def createEdge(self, name, options = {}):
+        options['name'] = name
+        resp = requests.request('POST', url_list_collections, options)
 
     def collections(self):
         """ Gets a lists of available collections
