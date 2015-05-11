@@ -204,6 +204,7 @@ class Edge(base.List, base.Attr):
                                 , self._edge_url
                                 , params={
                                     'collection': self.name,
+                                    'createCollection': True,
                                     'from': _from,
                                     'to':to
                                 }
