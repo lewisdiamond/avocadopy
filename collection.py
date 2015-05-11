@@ -95,12 +95,13 @@ class Collection(base.List, base.Attr):
             raise IOError(resp.json())
 
     def update(self, id, doc, full_resp=False):
-        resp = requests.request('PUT',
+        req = requests.Request('PUT',
                                 urljoin(self.url,
                                         self._url_document) + '/' + self._make_id(id),
                                 json=doc
                                 ,params={'policy':'error'}
-                                )
+                                ).prepare()
+        resp = self.session.send(req)
         if resp.status_code > 299:
             raise IOError(resp.status_code, resp.json()['errorMessage'])
         else:
@@ -108,10 +109,11 @@ class Collection(base.List, base.Attr):
 
 
     def delete(self, id):
-        resp = requests.request('DELETE',
+        req = requests.Request('DELETE',
                                urljoin(self.url,
                                        self._url_document) + '/' + self._make_id(id)
-                               )
+                               ).prepare()
+        resp = self.session.send(req)
         if resp.status_code > 299:
             raise IOError(resp.status_code, resp.json()['errorMessage'])
 
@@ -147,7 +149,8 @@ class Collection(base.List, base.Attr):
 
         """
         item = item if item.startswith(self.name) else self.name + '/' + item
-        resp = requests.request('GET', urljoin(self.url, self._url_document) + '/' + item)
+        req = requests.Request('GET', urljoin(self.url, self._url_document) + '/' + item).prepare()
+        resp = self.session.send(req)
         if resp.status_code == 200:
             return resp.json()
         elif resp.status_code == 404:
@@ -163,7 +166,8 @@ class Collection(base.List, base.Attr):
                 'skip': skip,
                 'limit': limit
                 }
-        resp = requests.request('PUT', urljoin(self.url, '_api/simple/by-example'), json=body)
+        req = requests.Request('PUT', urljoin(self.url, '_api/simple/by-example'), json=body).prepare()
+        resp = self.session.send(req)
         if resp.status_code < 300 and resp.status_code > 199:
             return resp.json()['result']
         else:
@@ -200,7 +204,7 @@ class Edge(base.List, base.Attr):
 
 
     def save(self, _from, to, doc=None, full_resp=False):
-        resp = requests.request('POST'
+        req = requests.Request('POST'
                                 , self._edge_url
                                 , params={
                                     'collection': self.name,
@@ -208,7 +212,8 @@ class Edge(base.List, base.Attr):
                                     'from': _from,
                                     'to':to
                                 }
-                                ,json=doc)
+                                ,json=doc).prepare()
+        resp = self.session.send(req)
 
         if resp.status_code > 299:
             raise IOError("Failed to create edge", resp.json()["errorMessage"])
@@ -218,8 +223,9 @@ class Edge(base.List, base.Attr):
             return ret if full_resp else ret['_id']
 
     def delete(self, item):
-        resp = requests.request('DELETE',
-                                self._edge_url + item)
+        req = requests.Request('DELETE',
+                                self._edge_url + item).prepare()
+        resp = self.session.send(req)
         if resp.status_code > 299:
             raise IOError("Failed to delete edge", resp.json()["errorMessage"])
         else:
