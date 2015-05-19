@@ -88,7 +88,7 @@ class Collection(base.List, base.Attr):
             del json_['error']
             return json_['_id'] if not full_resp else json_
         elif resp.status_code == 400:
-            raise ValueError("Invalid document")
+            raise ValueError("Invalid document", doc)
         elif resp.status_code == 404:
             raise ValueError("Can't insert document in invalid collection")
         else:
@@ -154,7 +154,7 @@ class Collection(base.List, base.Attr):
         if resp.status_code == 200:
             return resp.json()
         elif resp.status_code == 404:
-            raise KeyError('Document does not exist')
+            raise KeyError('Document does not exist', item)
         else:
             raise IOError(resp.json())
 
