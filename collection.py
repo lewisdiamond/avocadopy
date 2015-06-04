@@ -117,7 +117,18 @@ class Collection(base.List, base.Attr):
         if resp.status_code > 299:
             raise IOError(resp.status_code, resp.json()['errorMessage'])
 
-
+    def patch(self, doc, id, keepNull=False, mergeObjects=False, full_resp=False):
+        req = requests.Request('PATCH',
+                               urljoin(self.url,
+                                       self._url_document) + '/' + self._make_id(id),
+                               json=doc,
+                               params={keepNull:keepNull, mergeObjects:mergeObjects}
+                               ).prepare()
+        resp = self.session.send(req)
+        if resp.status_code > 299:
+            raise IOError(resp.status_code, resp.json()['errorMessage'])
+        else:
+            return resp.json() if full_resp else resp.json()['_id']
 
 
     def documents(self):

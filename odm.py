@@ -70,6 +70,9 @@ class Base(object):
         self._edges = collections.defaultdict(dict)
         self._fields = {}
         self._rels = {}
+        self._set_attributes(**kwargs)
+
+    def _set_attributes(self, **kwargs):
         for f in kwargs.keys():
             self.__setattr__(f, kwargs[f])
 
@@ -142,6 +145,11 @@ class Base(object):
 
     def save(self):
         return self._save()
+
+    def patch(self, o):
+        if self._id:
+            self._collection.patch(o._doc(), self._id)
+        return self.get(self._id)
 
     @classmethod
     def getall(cls):

@@ -168,6 +168,16 @@ class TestODM(unittest.TestCase):
         self.assertEqual(bran.name, 'Brandon')
         self.assertEqual(bran.sigil, 'Wolf')
 
+    def test_patch(self):
+        o = self.c.get('BranStark')
+        o2 = self.c(name='Brandon', sigil='Wolf')
+        new = o.patch(o2)
+        bran = self.c.get('BranStark')
+        self.assertEqual(bran.name, 'Brandon')
+        self.assertEqual(bran.sigil, 'Wolf')
+        self.assertEqual(new.sigil, 'Wolf')
+        self.assertEqual(new.name, 'Brandon')
+
     def test_delete(self):
         o = self.c.get('BranStark')
         o.delete()
