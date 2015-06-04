@@ -144,6 +144,14 @@ class Base(object):
         return self._save()
 
     @classmethod
+    def getall(cls):
+        docs = cls._collection.documents()
+        ret = []
+        for d in docs:
+            ret.append(cls(**d))
+        return ret
+
+    @classmethod
     def _list_attr(cls, _type):
         ret = []
         for f in [a for a in dir(cls) if not a.startswith("__")]:
