@@ -122,7 +122,7 @@ class Collection(base.List, base.Attr):
                                urljoin(self.url,
                                        self._url_document) + '/' + self._make_id(id),
                                json=doc,
-                               params={keepNull:keepNull, mergeObjects:mergeObjects}
+                               params={'keepNull':keepNull, 'mergeObjects':mergeObjects}
                                ).prepare()
         resp = self.session.send(req)
         if resp.status_code > 299:
