@@ -1,4 +1,5 @@
 import requests
+import json
 import base
 try:
     from urllib.parse import urljoin
@@ -71,6 +72,20 @@ class Collection(base.List, base.Attr):
             id = self.name + '/' + id
         return id
 
+    def createIndex(self, _type, fields, unique=False, sparse=False):
+        resp = requests.post(urljoin(self.url,'_api/index'), params={
+            'collection': self.name,
+            },
+            data=json.dumps({
+                'type':_type,
+                'fields': fields,
+                'unique': unique,
+                'sparse': sparse,
+            })
+        )
+
+        if resp.status_code > 299:
+            raise IOError("Failed to create index", resp.json())
 
     def save(self, doc, _key=None, full_resp=False):
         if _key is not None:
