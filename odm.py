@@ -76,7 +76,7 @@ class Base(object):
         for f in kwargs.keys():
             self.__setattr__(f, kwargs[f])
 
-    def _doc(self, include=[]):
+    def _doc(self, include=[], include_edges=[]):
         ignore = getattr(self, '__doc_ignore__', [])
         ignore.append('__doc_ignore__')
         ignore.append('__json_ignore__')
@@ -85,10 +85,23 @@ class Base(object):
         ret = {}
         for field in fields:
             c_attr = getattr(self.__class__, field, None)
-            if not isinstance(c_attr, Edge):
+            if not isinstance(c_attr, Edge) or field in include_edges:
                 attr = getattr(self, field)
-                if not isinstance(attr, Base) and not isinstance(attr, collections.Callable) and attr is not None:
+                if (not isinstance(attr, Base) and
+                    not isinstance(attr, collections.Callable) and
+                    not isinstance(attr, Edge) and
+                    not isinstance(attr, Rel) and
+                    attr is not None):
                     ret[field] = attr
+
+                if isinstance(c_attr, Edge):
+                    if c_attr.islist:
+                        ret[field] = []
+                        for i in attr:
+                            ret[field].append(i._doc())
+                    else:
+                        ret[field] = attr._doc() if attr is not None else None
+
                 if isinstance(c_attr, Rel):
                     if c_attr.islist:
                         ret[field] = []
@@ -96,6 +109,7 @@ class Base(object):
                             ret[field].append(i._id)
                     else:
                         ret[field] = attr._id if attr is not None else None
+
         return ret
 
     @classmethod
