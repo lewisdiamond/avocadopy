@@ -210,15 +210,20 @@ class Rel(object):
 
     def __init__(self, _type, auto_fetch=True, islist=False):
         self._type = _type
-        self.default = []
         self.islist = islist
+        self.default = lambda: [] if islist else lambda: None
         self.auto_fetch = auto_fetch
 
 
     def __get__(self, instance, _type):
         if instance is None:
             return self
-        ret = instance._rels[self] if self in instance._rels else self.default
+        ret = None
+        if self in instance._rels:
+            ret = instance._rels[self]
+        else:
+            ret = self.default()
+            instance._rels[self] = ret
         l = len(ret)
         if not self.islist:
             ret = ret[0] if l > 0 else None
@@ -229,7 +234,9 @@ class Rel(object):
         if self.islist:
             v = []
             for i in value:
-                v.append(self._get_value(i))
+                x = self._get_value(i)
+                if x:
+                    v.append(x)
         else:
             v = [self._get_value(value)]
         instance._rels[self] = v
@@ -240,7 +247,10 @@ class Rel(object):
         if isinstance(value, self._type):
             ret = value
         elif isinstance(value, basestring) and self.auto_fetch:
-            v = self._type.get(value)
+            try:
+                v = self._type.get(value)
+            except:
+                v = None
             if v is not None:
                 ret = v
         elif value is not None:
