@@ -66,15 +66,19 @@ class Base(object):
     def _key(self, value):
         self.__key = str(value) if value is not None else None
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, fetch_rels_and_edges=True, *args, **kwargs):
         self._edges = collections.defaultdict(dict)
         self._fields = {}
         self._rels = {}
-        self._set_attributes(**kwargs)
+        self._set_attributes(fetch_rels_and_edges, **kwargs)
 
-    def _set_attributes(self, **kwargs):
+    def _set_attributes(self, fetch_rels_and_edges=True, **kwargs):
         for f in kwargs.keys():
-            self.__setattr__(f, kwargs[f])
+            attr = getattr(self.__class__, f, None)
+            if fetch_rels_and_edges or (
+                    not isinstance(attr, Rel) and
+                    not isinstance(attr, Edge)):
+                self.__setattr__(f, kwargs[f])
 
     def _doc(self, include=[], include_edges=[]):
         ignore = getattr(self, '__doc_ignore__', [])
