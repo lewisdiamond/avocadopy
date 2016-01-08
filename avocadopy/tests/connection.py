@@ -1,5 +1,5 @@
 import unittest
-import connection
+from avocadopy import connection
 
 
 class TestConnection(unittest.TestCase):

@@ -1,15 +1,15 @@
 import unittest
-import tests
 import itertools
-from tests import odm
+from avocadopy.tests import suite
+from avocadopy.tests import odm
 
 suite = list(
     itertools.chain(
-    tests.suite,
+    suite,
     odm.suite
     )
 )
 if __name__ == '__main__':
     _suite = unittest.TestSuite(suite)
-    runner = unittest.TextTestRunner()
+    runner = unittest.TextTestRunner(verbosity=2)
     runner.run(_suite)

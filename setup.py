@@ -1,9 +1,20 @@
-from distutils.core import setup
+from setuptools import setup, find_packages
 
-setup(name='arango_client',
-      version='0.01a',
-      description='arango db client',
+requires = [
+    'requests',
+    'six',
+]
+
+setup(name='avocadopy',
+      version='0.0',
+      description='ArangoDB client',
       author='Lewis Diamond',
-      author_email='blah@blah.com',
-      packages=['arango_client', 'arango_client.tests'],
+      author_email='',
+      url='',
+      keywords='arangodb',
+      packages=find_packages(),
+      include_package_data=True,
+      zip_safe=False,
+      install_requires=requires,
+      test_suite="avocadopy.tests",
       )

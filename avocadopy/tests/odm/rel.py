@@ -1,8 +1,10 @@
 import unittest
-import connection
+import six
+from avocadopy import connection
+from avocadopy.tests import db, TestCase
+from avocadopy import odm
 
-
-class TestRel(unittest.TestCase):
+class TestRel(TestCase):
 
     def setUp(self):
         self.connection = connection.Connection()
@@ -15,11 +17,13 @@ class TestRel(unittest.TestCase):
         class V(odm.Base):
             _collection_name = "collection_two"
             _db = self.db
+            name = odm.Field()
             t = odm.Rel(T)
 
         class L(odm.Base):
             _collection_name = "collection_two"
             _db = self.db
+            name = odm.Field()
             t = odm.Rel(T, islist=True)
 
 
@@ -57,8 +61,8 @@ class TestRel(unittest.TestCase):
 
         l1_ = self.L.get(l1._id)
         self.assertEqual(l1_.name, l1.name)
-        self.assertItemsEqual(l1.t[0]._id, l1_.t[0]._id)
-        self.assertItemsEqual(l1.t[1]._id, l1_.t[1]._id)
+        six.assertCountEqual(self, l1.t[0]._id, l1_.t[0]._id)
+        six.assertCountEqual(self, l1.t[1]._id, l1_.t[1]._id)
 
         l1.t.remove(t)
         l1.save()
@@ -66,7 +70,7 @@ class TestRel(unittest.TestCase):
         l1_ = self.L.get(l1._id)
         self.assertEqual(l1_.name, l1.name)
         self.assertEqual(len(l1.t), 1)
-        self.assertItemsEqual(l1.t[0]._id, l1_.t[0]._id)
+        six.assertCountEqual(self, l1.t[0]._id, l1_.t[0]._id)
 
         t.delete()
         t2.delete()

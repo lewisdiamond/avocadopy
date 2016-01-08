@@ -1,8 +1,8 @@
-import edge
-import odm
-import rel
-import validation
-import transformation
+from avocadopy.tests.odm import edge
+from avocadopy.tests.odm import odm
+from avocadopy.tests.odm import rel
+from avocadopy.tests.odm import validation
+from avocadopy.tests.odm import transformation
 import itertools
 
 db = 'arango_client_test'

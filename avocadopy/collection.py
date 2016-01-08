@@ -1,11 +1,22 @@
 import requests
 import json
-import base
-import batch_request
+from avocadopy import base, batch_request
 try:
     from urllib.parse import urljoin
 except ImportError:
     from urlparse import urljoin
+
+
+class TruncateCollectionMixin(object):
+    _truncate_url = "_api/collection/{collection_name}/truncate"
+
+    def truncate(self):
+        req = requests.Request('PUT',
+                               urljoin(self.url,
+                                       self._truncate_url).format(collection_name=self.name)
+                               ).prepare()
+        resp = self.session.send(req)
+
 
 class CreateIndexMixin(object):
 
@@ -61,7 +72,7 @@ class DocumentList(object):
     def __contains__(self, item_id):
         return item_id in self.ids
 
-class Collection(base.List, base.Attr, CreateIndexMixin):
+class Collection(base.List, base.Attr, CreateIndexMixin, TruncateCollectionMixin):
 
     """A collection"""
     _url_document = "_api/document"
@@ -218,7 +229,7 @@ class Collection(base.List, base.Attr, CreateIndexMixin):
         else:
             raise IOError("Failed to fetch documents by example: ", example, resp.json()['errorMessage'])
 
-class Edge(base.List, base.Attr, CreateIndexMixin):
+class Edge(base.List, base.Attr, CreateIndexMixin, TruncateCollectionMixin):
 
     """A collection"""
     _url_edges = "_api/edges/"

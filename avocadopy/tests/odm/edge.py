@@ -1,8 +1,9 @@
 import unittest
-import connection
-from ... import odm
+from avocadopy import connection
+from avocadopy.tests import db, TestCase
+from avocadopy import odm
 
-class TestEdge(unittest.TestCase):
+class TestEdge(TestCase):
 
     def setUp(self):
         self.connection = connection.Connection()

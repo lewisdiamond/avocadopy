@@ -1,7 +1,8 @@
-import connection
+from avocadopy.tests import TestCase
+from avocadopy import connection
 import unittest
 
-class TestEdge(unittest.TestCase):
+class TestEdge(TestCase):
 
     def setUp(self):
         c = connection.Connection()

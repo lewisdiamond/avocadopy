@@ -1,5 +1,6 @@
 import unittest
-import connection
+import six
+from avocadopy import connection
 
 class TestDatabase(unittest.TestCase):
 
@@ -9,7 +10,7 @@ class TestDatabase(unittest.TestCase):
 
     def test_get_collections(self):
         cols = self.d.collections()
-        self.assertItemsEqual(['collection_one', 'collection_two', 'edge'], cols.keys())
+        six.assertCountEqual(self, ['collection_one', 'collection_two', 'edge'], cols.keys())
 
     def test_get_collection(self):
         v = self.d.collection_one

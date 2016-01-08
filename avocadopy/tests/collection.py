@@ -1,9 +1,11 @@
 import unittest
-import connection
+from avocadopy.tests import TestCase
+from avocadopy import connection
 
-class TestCollection(unittest.TestCase):
+class TestCollection(TestCase):
 
     def setUp(self):
+        self._truncate_all()
         c = connection.Connection()
         self.col = c.arango_client_test.collection_one
         doc = {'name': 'Bran', 'surname': 'Stark'}

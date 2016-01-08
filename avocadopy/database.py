@@ -1,6 +1,6 @@
 import requests
-from collection import Collection, Edge
-import base
+from avocadopy.collection import Collection, Edge
+from avocadopy import base
 try:
     from urllib.parse import urljoin
 except ImportError:

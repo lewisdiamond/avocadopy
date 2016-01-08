@@ -1,27 +1,41 @@
 import unittest
-from .. import odm
+from avocadopy import odm
+from avocadopy import connection
+from avocadopy.tests import db, TestCase
 
-class TestODM(unittest.TestCase):
+class TestODM(TestCase):
 
     def setUp(self):
         self.connection = c = connection.Connection()
-        self.db = c.arango_client_test
+        self.db = c[db]
 
         class Test(odm.Base):
             _collection_name = "collection_one"
             _db = self.db
             name = odm.Field()
+            sigil = odm.Field()
             surname = odm.Field()
 
         class Test2(odm.Base):
             _collection_name = "collection_two"
             _db = self.db
+            _name = None
+
+            @property
+            def name(self):
+                return self._name
+
+            @name.setter
+            def name(self, value):
+                if value == "Tyrion Lannister":
+                    value = "Tyrion Targaryen"
+                self._name = value
 
         self.test2 = Test2
         self.c = Test
         self.col = c.arango_client_test.collection_one
         self.col2 = c.arango_client_test.collection_two
-        doc = {'name': 'Bran', 'surname': 'Stark', '_key':'BranStark'}
+        doc = {'name': 'Bran', 'surname': 'Stark', 'friend': 'Jamie Lannister',  '_key':'BranStark'}
         self.bran = self.col.save(doc)
 
     def test_field(self):
@@ -44,6 +58,7 @@ class TestODM(unittest.TestCase):
 
     def test_doc(self):
         o = self.c.get('BranStark')
+        self.assertRaises(AttributeError, lambda: o.friend)
         self.assertEqual(o._doc(), {'name': 'Bran', 'surname': 'Stark'})
         self.assertEqual(o._key, 'BranStark')
 
@@ -70,6 +85,19 @@ class TestODM(unittest.TestCase):
         o = self.c.get('BranStark')
         o.delete()
         self.assertRaises(KeyError, self.c.get, 'BranStark')
+
+    def test_property(self):
+        o = self.test2()
+        o.name = "Tyrion Lannister"
+        self.assertEqual(o.name, "Tyrion Targaryen")
+        import pdb; pdb.set_trace()
+        o.save()
+
+        doc = self.test2._collection[o._id]
+        self.assertEqual(doc['name'], "Tyrion Targaryen")
+
+        _o = self.test2.get(o._id)
+        self.assertEqual(_o.name, "Tyrion Targaryen")
 
     def tearDown(self):
         try:

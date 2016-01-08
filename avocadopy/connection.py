@@ -1,6 +1,6 @@
 import requests
-import database
-import base
+from avocadopy import database
+from avocadopy import base
 try:
     from urllib.parse import urljoin
 except ImportError:
