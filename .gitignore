@@ -4,5 +4,6 @@
 *.swn
 *.sw*
 *.egg-info
+*.orig
 .ropeproject
 __pycache__
