@@ -271,10 +271,6 @@ class TestEdge(unittest.TestCase):
         arya_.delete()
 
 
-
-
-
-
     def tearDown(self):
         self.sam.delete()
         self.arya.delete()
@@ -324,6 +320,7 @@ class TestRel(unittest.TestCase):
         _t.delete()
 
     def test_fetch_rel_list(self):
+
         t = self.T(name="content")
         t2 = self.T(name="content2")
         l1 = self.L(name="container")
@@ -351,6 +348,32 @@ class TestRel(unittest.TestCase):
         t2.delete()
         l1.delete()
 
+
+class TestBatch(unittest.TestCase):
+
+    def setUp(self):
+        self.connection = connection.Connection()
+        self.db = self.connection[db]
+        self.col1 = self.db.collection_one
+        self.arya = {'name': 'Arya'}
+        self.davos = {'name': 'Davos'}
+
+    def test_batch_request_getall(self):
+        arya = self.col1.save(self.arya)
+        davos = self.col1.save(self.davos)
+        try:
+            resp = self.col1.get_batched([arya, davos])
+            for r in resp:
+                self.assertTrue(r['name'] in ("Arya","Davos"))
+            self.assertEqual(len(resp), 2)
+        except:
+            raise
+        finally:
+            self.col1.delete(arya)
+            self.col1.delete(davos)
+
+        resp = self.col1.get_batched([arya, davos])
+        self.assertEquals(len(resp), 0)
 
 if __name__ == '__main__':
         unittest.main()

@@ -1,6 +1,7 @@
 import requests
 import json
 import base
+import batch_request
 try:
     from urllib.parse import urljoin
 except ImportError:
@@ -168,6 +169,11 @@ class Collection(base.List, base.Attr, CreateIndexMixin):
         doc = self.documents()
         return item in dbs
 
+    def _get_item_request(self, item):
+        item = item if item.startswith(self.name) else self.name + '/' + item
+        req = requests.Request('GET', urljoin(self.url, self._url_document) + '/' + item).prepare()
+        return req
+
     def __getitem__(self, item):
         """Get a database object
 
@@ -176,8 +182,7 @@ class Collection(base.List, base.Attr, CreateIndexMixin):
         :raises: KeyError
 
         """
-        item = item if item.startswith(self.name) else self.name + '/' + item
-        req = requests.Request('GET', urljoin(self.url, self._url_document) + '/' + item).prepare()
+        req = self._get_item_request(item)
         resp = self.session.send(req)
         if resp.status_code == 200:
             return resp.json()
@@ -187,6 +192,18 @@ class Collection(base.List, base.Attr, CreateIndexMixin):
             raise IOError(resp.json())
 
         ## 304 and 412 not yet supported
+
+    def get_batched(self, item_ids):
+        ret = []
+        reqs = [self._get_item_request(i) for i in item_ids]
+        req = batch_request.create_batch(reqs, self.url)
+        resp = self.session.send(req)
+        responses = batch_request.extract_batch_responses(resp)
+        for r in responses:
+            if r.status_code >= 200 and r.status_code < 300:
+                ret.append(r.json())
+        return ret
+
 
     def example(self, example, skip=None, limit=None):
         body = {'collection': self.name,

@@ -39,7 +39,6 @@ class DatabaseProvider(object):
     def __set__(self, value):
         self._db = value
 
-
 class CollectionProvider(object):
 
     _collections = {}
@@ -67,6 +66,7 @@ class Base(object):
         self.__key = str(value) if value is not None else None
 
     def __init__(self, fetch_rels_and_edges=True, *args, **kwargs):
+        self._collection = self._db[self._collection_name]
         self._edges = collections.defaultdict(dict)
         self._fields = {}
         self._rels = {}
@@ -118,8 +118,15 @@ class Base(object):
 
     @classmethod
     def get(cls, id):
-        o = cls._collection[str(id)]
-        return cls(**o)
+        ret = None
+        if isinstance(id, (list, tuple)):
+            objs = cls._collection.get_batched(id)
+            ret = []
+            for o in objs:
+                ret.append(cls(**o))
+        else:
+            ret = cls(**cls._collection[str(id)])
+        return ret
 
     def _update_keys(self, resp):
         keys = ['_id', '_key', '_rev']
@@ -225,6 +232,9 @@ class Rel(object):
         ret = None
         if self in instance._rels:
             ret = instance._rels[self]
+            if isinstance(ret[0], basestring):
+                self._fetch()
+                ret = instance._rels[self]
         else:
             ret = self.default()
             instance._rels[self] = ret
@@ -235,30 +245,33 @@ class Rel(object):
 
     def __set__(self, instance, value):
         v = None
-        if self.islist:
-            v = []
-            for i in value:
-                x = self._get_value(i)
-                if x:
-                    v.append(x)
-        else:
-            v = [self._get_value(value)]
-        instance._rels[self] = v
-        return v
-
-    def _get_value(self, value):
-        ret = None
-        if isinstance(value, self._type):
-            ret = value
-        elif isinstance(value, basestring) and self.auto_fetch:
-            try:
-                v = self._type.get(value)
-            except:
-                v = None
-            if v is not None:
-                ret = v
-        elif value is not None:
+        ok = self._check_value(value)
+        if not ok:
             raise ValueError("The given 'relationship' type does not match the expected type:", value, self._type)
+        if isinstance(value, list):
+            instance._rels[self] = value
+        else:
+            instance._rels[self] = [value]
+        if self.auto_fetch:
+            self._fetch(instance)
+
+    def _fetch(self, instance):
+        val = instance._rels[self]
+        if len(val) > 0:
+            if isinstance(val[0], basestring):
+                instance._rels[self] = self._type.get(val)
+
+    def _check_value(self, value):
+        def check(v):
+            return isinstance(v, self._type) or (
+                isinstance(v, basestring) and v.startswith(self._type._collection_name))
+
+        ret = True
+        if self.islist and not isinstance(value, list):
+            ret = False
+        elif self.islist:
+            for x in value:
+                ret = ret and check(x)
         return ret
 
 

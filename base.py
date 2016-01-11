@@ -15,9 +15,6 @@ class List(object):
         return ret
 
 
-
 class Attr(object):
     def __getattr__(self, attr):
         return self[attr]
-
-
