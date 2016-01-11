@@ -6,6 +6,23 @@ try:
 except ImportError:
     from urlparse import urljoin
 
+class CreateIndexMixin(object):
+
+    def createIndex(self, _type, fields, unique=False, sparse=False):
+        resp = requests.post(urljoin(self.url,'_api/index'), params={
+            'collection': self.name,
+            },
+            data=json.dumps({
+                'type':_type,
+                'fields': fields,
+                'unique': unique,
+                'sparse': sparse,
+            })
+        )
+
+        if resp.status_code > 299:
+            raise IOError("Failed to create index", resp.json())
+
 class DocumentListIterator(object):
     def __init__(self, ids, collection):
         self.ids = ids
@@ -43,7 +60,7 @@ class DocumentList(object):
     def __contains__(self, item_id):
         return item_id in self.ids
 
-class Collection(base.List, base.Attr):
+class Collection(base.List, base.Attr, CreateIndexMixin):
 
     """A collection"""
     _url_document = "_api/document"
@@ -71,21 +88,6 @@ class Collection(base.List, base.Attr):
         if id and not id.startswith(self.name):
             id = self.name + '/' + id
         return id
-
-    def createIndex(self, _type, fields, unique=False, sparse=False):
-        resp = requests.post(urljoin(self.url,'_api/index'), params={
-            'collection': self.name,
-            },
-            data=json.dumps({
-                'type':_type,
-                'fields': fields,
-                'unique': unique,
-                'sparse': sparse,
-            })
-        )
-
-        if resp.status_code > 299:
-            raise IOError("Failed to create index", resp.json())
 
     def save(self, doc, _key=None, full_resp=False):
         if _key is not None:
@@ -199,7 +201,7 @@ class Collection(base.List, base.Attr):
         else:
             raise IOError("Failed to fetch documents by example: ", example, resp.json()['errorMessage'])
 
-class Edge(base.List, base.Attr):
+class Edge(base.List, base.Attr, CreateIndexMixin):
 
     """A collection"""
     _url_edges = "_api/edges/"

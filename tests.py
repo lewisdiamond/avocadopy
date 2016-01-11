@@ -327,7 +327,10 @@ class TestRel(unittest.TestCase):
         t = self.T(name="content")
         t2 = self.T(name="content2")
         l1 = self.L(name="container")
+        l2 = self.L(name="container2")
 
+        l2.t.append(t2)
+        self.assertEqual(len(l1.t), 0)
         l1.t = [t, t2]
         l1.save()
 
