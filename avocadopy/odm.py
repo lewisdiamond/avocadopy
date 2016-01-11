@@ -3,6 +3,8 @@ import importlib
 import six
 from avocadopy.utils import is_id
 
+_registry = {}
+
 def class_for_name(name):
     parts = name.split(".")
     module_name = ".".join(parts[:-1])
@@ -50,29 +52,39 @@ class CollectionProvider(object):
             self._collections[_type] = _type._db[_type._collection_name]
         return self._collections[_type]
 
-
 class OdmMeta(type):
 
     def __init__(cls, name, bases, dct):
         super(OdmMeta, cls).__init__(name, bases, dct)
-        cls._fields = getattr(cls, '_fields', {})
+        cls._attrs = getattr(cls, '_attrs', {}).copy()
         for k,v in cls.__dict__.items():
-            is_attr = getattr(v, '_is_attr', False)
+            is_attr = getattr(v.__class__, '_is_attr', False)
+            name = None
+            if is_attr is False:
+                try:
+                    is_attr = _registry[v]["_is_attr"]
+                    name = _registry[v]["_name"]
+                except:
+                    pass
+            else:
+                name = getattr(v, '_name', None)
+
             if is_attr is True:
-                cls._fields[k] = {'name': getattr(v, '_name')}
+                cls._attrs[k] = {'name': name}
 
 def IsField(name=None, **kwargs):
     def wrapper(f):
-        f._is_attr = True
-        f._name = name
+        _registry[f] = {'_is_attr': True, '_name': name}
         return f
     return wrapper
 
 
 class FieldMixin(object):
+    _is_attr = True
 
-    def __init__(self, name=None):
-        self.name = name
+    def __init__(self, name=None, readonly=False, **kwargs):
+        self._name = name
+        self._readonly = readonly
 
 class SystemField(FieldMixin):
 
@@ -93,7 +105,7 @@ class Rev(SystemField):
 class Id(SystemField):
     pass
 
-class Base(object):
+class Base(six.with_metaclass(OdmMeta, object)):
     __metaclass__ = OdmMeta
     _collection_name = CollectionName()
     _db = DatabaseProvider()
@@ -122,7 +134,7 @@ class Base(object):
         if not isinstance(attr, collections.Callable):
             if not self._validate:
                 ret = True
-            elif isinstance(attr, FieldMixin) or attr_name in self._fields:
+            elif isinstance(attr, FieldMixin) or attr_name in self._attrs:
                 ret = True
         return ret
 
@@ -132,39 +144,33 @@ class Base(object):
             if self._can_set(f):
                 self.__setattr__(f, kwargs[f])
 
-    def _doc(self, include=[], include_edges=[]):
+    def user_doc(self, include=[], include_edges=[]):
+        exclude = ['_key', '_id', '_rev']
+        return self._doc(include, include_edges, exclude)
+
+    def _doc(self, include=[], include_edges=[], exclude=[]):
         ignore = getattr(self, '__doc_ignore__', [])
-        ignore.append('__doc_ignore__')
-        ignore.append('__json_ignore__')
-        fields = [ n for n in dir(self) if not n.startswith('_') and n not in ignore ]
+        ignore.extend(exclude)
+        ignore.append('_doc_ignore')
+        ignore.append('_json_ignore')
+        fields = [ k for k,v in self._attrs.items() if k not in ignore ]
+        fields.extend(include_edges)
         fields.extend(include)
         ret = {}
         for field in fields:
             c_attr = getattr(self.__class__, field, None)
-            if not isinstance(c_attr, Edge) or field in include_edges:
-                attr = getattr(self, field)
-                if (not isinstance(attr, Base) and
-                    not isinstance(attr, collections.Callable) and
-                    not isinstance(attr, Edge) and
-                    not isinstance(attr, Rel) and
-                    attr is not None):
-                    ret[field] = attr
+            attr = getattr(self, field)
+            val = None
+            try:
+                val = c_attr._doc(self)
+            except AttributeError:
+                val = attr
+            except:
+                pass
 
-                if isinstance(c_attr, Edge):
-                    if c_attr.islist:
-                        ret[field] = []
-                        for i in attr:
-                            ret[field].append(i._doc())
-                    else:
-                        ret[field] = attr._doc() if attr is not None else None
+            if val is not None:
+                ret[field] = val
 
-                if isinstance(c_attr, Rel):
-                    if c_attr.islist:
-                        ret[field] = []
-                        for i in attr:
-                            ret[field].append(i._id)
-                    else:
-                        ret[field] = attr._id if attr is not None else None
         return ret
 
     @classmethod
@@ -278,7 +284,7 @@ class Rel(FieldMixin):
         self.auto_fetch = auto_fetch
 
 
-    def __get__(self, instance, _type):
+    def __get__(self, instance, _type=None):
         if instance is None:
             return self
         ret = None
@@ -326,8 +332,19 @@ class Rel(FieldMixin):
                 ret = ret and check(x)
         return ret
 
+    def _doc(self, instance, **kwargs):
+        ret = None
+        v = self.__get__(instance)
+        if self.islist:
+            ret = []
+            for i in v:
+                ret.append(i._id)
+        else:
+            ret = v._id
+        return ret
 
-class Edge(FieldMixin):
+
+class Edge(object):
     _collection = None
 
     def __init__(self, collection_name, _type, islist=True):
@@ -362,7 +379,7 @@ class Edge(FieldMixin):
                     raise LookupError("Found multiple edges for", instance._id, "in", self.collection(instance).name)
         return ret
 
-    def __get__(self, instance, _type):
+    def __get__(self, instance, _type=None):
         if instance is None:
             return self
         value = None
@@ -409,3 +426,16 @@ class Edge(FieldMixin):
             self.collection(instance).delete(i['_id'])
         if self in instance._edges:
             del instance._edges[self]
+
+
+    def _doc(self, instance, **kwargs):
+        ret = None
+        v = self.__get__(instance)
+        if self.islist:
+            ret = []
+            for i in v:
+                ret.append(i._id)
+        else:
+            ret = i._id
+        return ret
+

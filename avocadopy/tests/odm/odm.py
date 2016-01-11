@@ -17,6 +17,7 @@ class TestODM(TestCase):
             surname = odm.Field()
 
         class Test2(odm.Base):
+            _attrs = {'name':{}}
             _collection_name = "collection_two"
             _db = self.db
             _name = None
@@ -59,7 +60,7 @@ class TestODM(TestCase):
     def test_doc(self):
         o = self.c.get('BranStark')
         self.assertRaises(AttributeError, lambda: o.friend)
-        self.assertEqual(o._doc(), {'name': 'Bran', 'surname': 'Stark'})
+        self.assertEqual(o.user_doc(), {'name': 'Bran', 'surname': 'Stark'})
         self.assertEqual(o._key, 'BranStark')
 
     def test_put(self):
@@ -90,7 +91,6 @@ class TestODM(TestCase):
         o = self.test2()
         o.name = "Tyrion Lannister"
         self.assertEqual(o.name, "Tyrion Targaryen")
-        import pdb; pdb.set_trace()
         o.save()
 
         doc = self.test2._collection[o._id]
