@@ -1,4 +1,5 @@
 import unittest
+import itertools
 from avocadopy import odm
 from avocadopy import connection
 from avocadopy.tests import db, TestCase
@@ -99,6 +100,11 @@ class TestODM(TestCase):
         _o = self.test2.get(o._id)
         self.assertEqual(_o.name, "Tyrion Targaryen")
 
+        o.name = 'Tyrion'
+        o.update()
+        doc = self.test2._collection[o._id]
+        self.assertEqual(doc['name'], "Tyrion")
+
     def tearDown(self):
         try:
             self.col.delete('BranStark')
@@ -106,8 +112,39 @@ class TestODM(TestCase):
             pass
 
 
+class TestBatch(unittest.TestCase):
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestODM)
+    def setUp(self):
+        self.connection = connection.Connection()
+        self.db = self.connection[db]
+        self.col1 = self.db.collection_one
+        self.arya = {'name': 'Arya'}
+        self.davos = {'name': 'Davos'}
+
+    def test_batch_request_getall(self):
+        arya = self.col1.save(self.arya)
+        davos = self.col1.save(self.davos)
+        try:
+            resp = self.col1.get_batched([arya, davos])
+            for r in resp:
+                self.assertTrue(r['name'] in ("Arya","Davos"))
+            self.assertEqual(len(resp), 2)
+        except:
+            raise
+        finally:
+            self.col1.delete(arya)
+            self.col1.delete(davos)
+
+        resp = self.col1.get_batched([arya, davos])
+        self.assertEquals(len(resp), 0)
+
+suite = list(
+    itertools.chain(
+        unittest.TestLoader().loadTestsFromTestCase(TestODM),
+        unittest.TestLoader().loadTestsFromTestCase(TestBatch)
+    )
+)
+
 
 if __name__ == '__main__':
     _suite = unittest.TestSuite(suite)

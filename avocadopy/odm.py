@@ -280,7 +280,7 @@ class Rel(FieldMixin):
     def __init__(self, _type, auto_fetch=True, islist=False):
         self._type = _type
         self.islist = islist
-        self.default = lambda: [] if islist else lambda: None
+        self.default = lambda: []
         self.auto_fetch = auto_fetch
 
 
@@ -290,7 +290,7 @@ class Rel(FieldMixin):
         ret = None
         if self in instance._rels:
             ret = instance._rels[self]
-            if isinstance(ret[0], basestring):
+            if len(ret) > 0 and isinstance(ret[0], six.string_types):
                 self._fetch()
                 ret = instance._rels[self]
         else:
@@ -322,7 +322,7 @@ class Rel(FieldMixin):
     def _check_value(self, value):
         def check(v):
             return isinstance(v, self._type) or (
-                isinstance(v, basestring) and v.startswith(self._type._collection_name))
+                isinstance(v, six.string_types) and v.startswith(self._type._collection_name))
 
         ret = True
         if self.islist and not isinstance(value, list):
