@@ -72,6 +72,13 @@ class OdmMeta(type):
             if is_attr is True:
                 cls._attrs[k] = {'name': name}
 
+    def __setattr__(cls, name, value):
+        is_attr = getattr(value.__class__, '_is_attr', False)
+        if is_attr:
+            _name = getattr(value, "_name", name)
+            cls._attrs[name] = {'_is_attr': True, '_name': _name}
+        type.__setattr__(cls, name, value)
+
 def IsField(name=None, **kwargs):
     def wrapper(f):
         _registry[f] = {'_is_attr': True, '_name': name}
@@ -144,8 +151,8 @@ class Base(six.with_metaclass(OdmMeta, object)):
             if self._can_set(f):
                 self.__setattr__(f, kwargs[f])
 
-    def user_doc(self, include=[], include_edges=[]):
-        exclude = ['_key', '_id', '_rev']
+    def user_doc(self, include=[], include_edges=[], exclude=[]):
+        exclude.extend(['_key', '_id', '_rev'])
         return self._doc(include, include_edges, exclude)
 
     def _doc(self, include=[], include_edges=[], exclude=[]):
@@ -156,13 +163,14 @@ class Base(six.with_metaclass(OdmMeta, object)):
         fields = [ k for k,v in self._attrs.items() if k not in ignore ]
         fields.extend(include_edges)
         fields.extend(include)
+        fields = set(fields)
         ret = {}
         for field in fields:
             c_attr = getattr(self.__class__, field, None)
             attr = getattr(self, field)
             val = None
             try:
-                val = c_attr._doc(self)
+                val = c_attr._doc(self, full_object=(field in include_edges))
             except AttributeError:
                 val = attr
             except:
@@ -276,6 +284,7 @@ class Field(FieldMixin):
         instance._fields[self] = value
 
 class Rel(FieldMixin):
+    _is_attr = True
 
     def __init__(self, _type, auto_fetch=True, islist=False):
         self._type = _type
@@ -332,13 +341,14 @@ class Rel(FieldMixin):
                 ret = ret and check(x)
         return ret
 
-    def _doc(self, instance, **kwargs):
+    def _doc(self, instance, full_object=False, **kwargs):
         ret = None
         v = self.__get__(instance)
         if self.islist:
             ret = []
             for i in v:
-                ret.append(i._id)
+                val = i._id if not full_object else i._doc(**kwargs)
+                ret.append(val)
         else:
             ret = v._id
         return ret
@@ -428,13 +438,14 @@ class Edge(object):
             del instance._edges[self]
 
 
-    def _doc(self, instance, **kwargs):
+    def _doc(self, instance, full_object, **kwargs):
         ret = None
         v = self.__get__(instance)
         if self.islist:
             ret = []
             for i in v:
-                ret.append(i._id)
+                val = i._id if not full_object else i._doc(**kwargs)
+                ret.append(val)
         else:
             ret = i._id
         return ret

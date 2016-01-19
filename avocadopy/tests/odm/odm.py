@@ -17,6 +17,10 @@ class TestODM(TestCase):
             sigil = odm.Field()
             surname = odm.Field()
 
+        Test.related_to = odm.Edge('edge', Test)
+        Test.killed_by = odm.Rel(Test)
+
+
         class Test2(odm.Base):
             _attrs = {'name':{}}
             _collection_name = "collection_two"
@@ -63,6 +67,16 @@ class TestODM(TestCase):
         self.assertRaises(AttributeError, lambda: o.friend)
         self.assertEqual(o.user_doc(), {'name': 'Bran', 'surname': 'Stark'})
         self.assertEqual(o._key, 'BranStark')
+
+        import pdb; pdb.set_trace()
+        rickon = self.c(name="Rickon", surname="Stark")
+        o.related_to = [rickon]
+
+        jamie = self.c(name="Jamie", surname="Lannister", sigil="Lion")
+        o.killed_by = [jamie]
+
+        o.save()
+
 
     def test_put(self):
         o = self.c.get('BranStark')
