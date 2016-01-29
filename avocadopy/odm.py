@@ -1,5 +1,9 @@
 import collections
 import importlib
+import six
+from avocadopy.utils import is_id
+
+_registry = {}
 
 def class_for_name(name):
     parts = name.split(".")
@@ -48,71 +52,132 @@ class CollectionProvider(object):
             self._collections[_type] = _type._db[_type._collection_name]
         return self._collections[_type]
 
+class OdmMeta(type):
 
-class Base(object):
+    def __init__(cls, name, bases, dct):
+        super(OdmMeta, cls).__init__(name, bases, dct)
+        cls._attrs = getattr(cls, '_attrs', {}).copy()
+        for k,v in cls.__dict__.items():
+            is_attr = getattr(v.__class__, '_is_attr', False)
+            name = None
+            if is_attr is False:
+                try:
+                    is_attr = _registry[v]["_is_attr"]
+                    name = _registry[v]["_name"]
+                except:
+                    pass
+            else:
+                name = getattr(v, '_name', None)
+
+            if is_attr is True:
+                cls._attrs[k] = {'name': name}
+
+    def __setattr__(cls, name, value):
+        is_attr = getattr(value.__class__, '_is_attr', False)
+        if is_attr:
+            _name = getattr(value, "_name", name)
+            cls._attrs[name] = {'_is_attr': True, '_name': _name}
+        type.__setattr__(cls, name, value)
+
+def IsField(name=None, **kwargs):
+    def wrapper(f):
+        _registry[f] = {'_is_attr': True, '_name': name}
+        return f
+    return wrapper
+
+
+class FieldMixin(object):
+    _is_attr = True
+
+    def __init__(self, name=None, readonly=False, **kwargs):
+        self._name = name
+        self._readonly = readonly
+
+class SystemField(FieldMixin):
+
+    def __get__(self, instance, _type):
+        if instance is None:
+            return self
+        return instance._fields.get(self)
+
+    def __set__(self, instance, value):
+        instance._fields[self] = value
+
+class Key(SystemField):
+    pass
+
+class Rev(SystemField):
+    pass
+
+class Id(SystemField):
+    pass
+
+class Base(six.with_metaclass(OdmMeta, object)):
+    __metaclass__ = OdmMeta
     _collection_name = CollectionName()
     _db = DatabaseProvider()
     _collection = CollectionProvider()
-    __key = None
-    _rev = None
-    _id = None
+    _fields = {}
+    _key = Key()
+    _rev = Rev()
+    _id = Id()
+    _fetch = True
+    _eager = True
+    _validate = True
 
-    @property
-    def _key(self):
-        return self.__key
-
-    @_key.setter
-    def _key(self, value):
-        self.__key = str(value) if value is not None else None
-
-    def __init__(self, fetch_rels_and_edges=True, *args, **kwargs):
+    def __init__(self, _fetch=None, _eager=None, _validate=None, *args, **kwargs):
         self._collection = self._db[self._collection_name]
         self._edges = collections.defaultdict(dict)
         self._fields = {}
         self._rels = {}
-        self._set_attributes(fetch_rels_and_edges, **kwargs)
+        self._fetch = _fetch if _fetch is not None else self._fetch
+        self._eager = _eager if _eager is not None else self._eager
+        self._validate = _validate if _validate is not None else self._validate
+        self._set_attributes(**kwargs)
 
-    def _set_attributes(self, fetch_rels_and_edges=True, **kwargs):
+    def _can_set(self, attr_name):
+        attr = getattr(self.__class__, attr_name, None)
+        ret = False
+        if not isinstance(attr, collections.Callable):
+            if not self._validate:
+                ret = True
+            elif isinstance(attr, FieldMixin) or attr_name in self._attrs:
+                ret = True
+        return ret
+
+    def _set_attributes(self, **kwargs):
         for f in kwargs.keys():
             attr = getattr(self.__class__, f, None)
-            if fetch_rels_and_edges or (
-                    not isinstance(attr, Rel) and
-                    not isinstance(attr, Edge)):
+            if self._can_set(f):
                 self.__setattr__(f, kwargs[f])
 
-    def _doc(self, include=[], include_edges=[]):
+    def user_doc(self, include=[], include_edges=[], exclude=[]):
+        exclude.extend(['_key', '_id', '_rev'])
+        return self._doc(include, include_edges, exclude)
+
+    def _doc(self, include=[], include_edges=[], exclude=[]):
         ignore = getattr(self, '__doc_ignore__', [])
-        ignore.append('__doc_ignore__')
-        ignore.append('__json_ignore__')
-        fields = [ n for n in dir(self) if not n.startswith('_') and n not in ignore ]
+        ignore.extend(exclude)
+        ignore.append('_doc_ignore')
+        ignore.append('_json_ignore')
+        fields = [ k for k,v in self._attrs.items() if k not in ignore ]
+        fields.extend(include_edges)
         fields.extend(include)
+        fields = set(fields)
         ret = {}
         for field in fields:
             c_attr = getattr(self.__class__, field, None)
-            if not isinstance(c_attr, Edge) or field in include_edges:
-                attr = getattr(self, field)
-                if (not isinstance(attr, Base) and
-                    not isinstance(attr, collections.Callable) and
-                    not isinstance(attr, Edge) and
-                    not isinstance(attr, Rel) and
-                    attr is not None):
-                    ret[field] = attr
+            attr = getattr(self, field)
+            val = None
+            try:
+                val = c_attr._doc(self, full_object=(field in include_edges and not self._fetch))
+            except AttributeError:
+                val = attr
+            except:
+                pass
 
-                if isinstance(c_attr, Edge):
-                    if c_attr.islist:
-                        ret[field] = []
-                        for i in attr:
-                            ret[field].append(i._doc())
-                    else:
-                        ret[field] = attr._doc() if attr is not None else None
-
-                if isinstance(c_attr, Rel):
-                    if c_attr.islist:
-                        ret[field] = []
-                        for i in attr:
-                            ret[field].append(i._id)
-                    else:
-                        ret[field] = attr._id if attr is not None else None
+            if val is not None:
+                ret[field] = val
 
         return ret
 
@@ -202,11 +267,12 @@ class Base(object):
         return ret
 
 
-class Field(object):
+class Field(FieldMixin):
 
     default = None
 
-    def __init__(self, default=None):
+    def __init__(self, default=None, **kwargs):
+        super(Field, self).__init__(**kwargs)
         self.default = default
 
     def __get__(self, instance, _type):
@@ -217,23 +283,24 @@ class Field(object):
     def __set__(self, instance, value):
         instance._fields[self] = value
 
-class Rel(object):
+class Rel(FieldMixin):
+    _is_attr = True
 
     def __init__(self, _type, auto_fetch=True, islist=False):
         self._type = _type
         self.islist = islist
-        self.default = lambda: [] if islist else lambda: None
+        self.default = lambda: []
         self.auto_fetch = auto_fetch
 
 
-    def __get__(self, instance, _type):
+    def __get__(self, instance, _type=None):
         if instance is None:
             return self
         ret = None
         if self in instance._rels:
             ret = instance._rels[self]
-            if isinstance(ret[0], basestring):
-                self._fetch()
+            if len(ret) > 0 and isinstance(ret[0], six.string_types):
+                self._fetch(instance)
                 ret = instance._rels[self]
         else:
             ret = self.default()
@@ -257,14 +324,14 @@ class Rel(object):
 
     def _fetch(self, instance):
         val = instance._rels[self]
-        if len(val) > 0:
-            if isinstance(val[0], basestring):
+        if len(val) > 0 and instance._fetch:
+            if isinstance(val[0], six.string_types):
                 instance._rels[self] = self._type.get(val)
 
     def _check_value(self, value):
         def check(v):
             return isinstance(v, self._type) or (
-                isinstance(v, basestring) and v.startswith(self._type._collection_name))
+                isinstance(v, six.string_types) and v.startswith(self._type._collection_name))
 
         ret = True
         if self.islist and not isinstance(value, list):
@@ -272,6 +339,21 @@ class Rel(object):
         elif self.islist:
             for x in value:
                 ret = ret and check(x)
+        return ret
+
+    def _doc(self, instance, full_object=False, **kwargs):
+        ret = None
+        v = self.__get__(instance)
+        if self.islist:
+            if full_object:
+                self._fetch(instance)
+            ret = []
+            for i in v:
+                id = getattr(i, '_id', i)
+                val = id if not full_object else i._doc(**kwargs)
+                ret.append(val)
+        else:
+            ret = v._id
         return ret
 
 
@@ -285,7 +367,7 @@ class Edge(object):
 
     def get_type(self):
         val = self.type
-        if isinstance(val, basestring):
+        if isinstance(val, six.string_types):
             val = class_for_name(val)
             self.type = val
         return val
@@ -297,7 +379,7 @@ class Edge(object):
 
     def _fetch(self, instance):
         ret = []
-        if instance._id is not None:
+        if instance._id is not None and not instance._fetch:
             ids = self.collection(instance)[instance._id]
             instance._edges[self]['db'] = ids
             for i in ids:
@@ -308,13 +390,9 @@ class Edge(object):
             if not self.islist:
                 if len(ret) > 1:
                     raise LookupError("Found multiple edges for", instance._id, "in", self.collection(instance).name)
-                elif len(ret) == 0:
-                    ret = None
-                else:
-                    ret = ret[0]
         return ret
 
-    def __get__(self, instance, _type):
+    def __get__(self, instance, _type=None):
         if instance is None:
             return self
         value = None
@@ -323,6 +401,8 @@ class Edge(object):
         elif hasattr(instance, "_id"):
             value = self._fetch(instance)
             instance._edges[self]['value'] = value
+        if not self.islist:
+            value = value[0] if len(value) is 1 else None
         return value
 
     def __set__(self, instance, value):
@@ -334,7 +414,6 @@ class Edge(object):
         else:
             o = value
         instance._edges[self]['value'] = o
-        return o
 
     def save(self, instance):
         objs = []
@@ -360,3 +439,17 @@ class Edge(object):
             self.collection(instance).delete(i['_id'])
         if self in instance._edges:
             del instance._edges[self]
+
+
+    def _doc(self, instance, full_object=False, **kwargs):
+        ret = None
+        v = self.__get__(instance)
+        if self.islist:
+            ret = []
+            for i in v:
+                val = i._id if not full_object else i._doc(**kwargs)
+                ret.append(val)
+        else:
+            ret = i._id
+        return ret
+

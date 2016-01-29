@@ -3,4 +3,8 @@
 *.swo
 *.swn
 *.sw*
+*.egg-info
+*.orig
+.eggs/
 .ropeproject
+__pycache__

@@ -37,8 +37,7 @@ def request_to_string(request, client_id=None):
 def create_batch(request_list, base_url):
     batch_url = urljoin(base_url, '_api/batch')
     part_delim = str(uuid.uuid4())
-    content_id = range(len(request_list))
-    content_id.reverse()
+    content_id = list(reversed(range(len(request_list))))
     data = '\r\n'.join('--{delim}\r\n{req}'.format(delim=part_delim, req=request_to_string(r, content_id.pop())) for r in request_list)
     data = data + '--{delim}--'.format(delim=part_delim)
     req = requests.Request('POST',
