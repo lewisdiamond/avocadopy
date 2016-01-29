@@ -170,7 +170,7 @@ class Base(six.with_metaclass(OdmMeta, object)):
             attr = getattr(self, field)
             val = None
             try:
-                val = c_attr._doc(self, full_object=(field in include_edges and not self._fetch))
+                val = c_attr._doc(self, full_object=(field in include_edges and self._fetch))
             except AttributeError:
                 val = attr
             except:
