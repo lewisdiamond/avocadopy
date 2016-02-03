@@ -82,7 +82,10 @@ class TestEdge(TestCase):
         arya_ = Person.get(arya._id)
         self.assertEqual(len(arya_.knows), 1)
         self.assertEqual(arya_.knows[0].name, 'Sam')
-        arya_.delete()
+        arya_.knows = [self.jon]
+        arya_.save()
+        arya_.save()
+
 
     def tearDown(self):
         self.sam.delete()

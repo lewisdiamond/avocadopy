@@ -379,7 +379,7 @@ class Edge(object):
 
     def _fetch(self, instance):
         ret = []
-        if instance._id is not None and not instance._fetch:
+        if instance._id is not None and instance._fetch:
             ids = self.collection(instance)[instance._id]
             instance._edges[self]['db'] = ids
             for i in ids:
