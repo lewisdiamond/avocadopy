@@ -124,8 +124,9 @@ class Base(six.with_metaclass(OdmMeta, object)):
     _fetch = True
     _eager = True
     _validate = True
+    _clean = False
 
-    def __init__(self, _fetch=None, _eager=None, _validate=None, *args, **kwargs):
+    def __init__(self, _fetch=None, _clean=False,  _eager=None, _validate=None, *args, **kwargs):
         self._collection = self._db[self._collection_name]
         self._edges = collections.defaultdict(dict)
         self._fields = {}
@@ -134,6 +135,7 @@ class Base(six.with_metaclass(OdmMeta, object)):
         self._eager = _eager if _eager is not None else self._eager
         self._validate = _validate if _validate is not None else self._validate
         self._set_attributes(**kwargs)
+        self._clean = _clean
 
     def _can_set(self, attr_name):
         attr = getattr(self.__class__, attr_name, None)
@@ -188,9 +190,9 @@ class Base(six.with_metaclass(OdmMeta, object)):
             objs = cls._collection.get_batched(id)
             ret = []
             for o in objs:
-                ret.append(cls(**o))
+                ret.append(cls(_clean=True, **o))
         else:
-            ret = cls(**cls._collection[str(id)])
+            ret = cls(_clean=True, **cls._collection[str(id)])
         return ret
 
     def _update_keys(self, resp):
@@ -208,6 +210,7 @@ class Base(six.with_metaclass(OdmMeta, object)):
             ret = self._collection.save(self._doc(include=['_key']), full_resp=True)
         self._update_keys(ret)
         self._save_edges()
+        self._clean = True
         return self
 
     def _save_edges(self):
@@ -216,10 +219,8 @@ class Base(six.with_metaclass(OdmMeta, object)):
             e.save(self)
 
     def _save_rels(self):
-        for v in self._rels.values():
-            for i in v:
-                if i is not None:
-                    i.save()
+        for v in self._rels.keys():
+            v.save(self)
 
     def update(self):
         return self._save(True)
@@ -246,7 +247,7 @@ class Base(six.with_metaclass(OdmMeta, object)):
         docs = cls._collection.documents()
         ret = []
         for d in docs:
-            ret.append(cls(**d))
+            ret.append(cls(_clean=True, **d))
         return ret
 
     @classmethod
@@ -263,8 +264,11 @@ class Base(six.with_metaclass(OdmMeta, object)):
         results = cls._collection.example(example)
         ret = []
         for r in results:
-            ret.append(cls(**r))
+            ret.append(cls(_clean=True, **r))
         return ret
+
+    def _is_clean(self):
+        return self._clean
 
 
 class Field(FieldMixin):
@@ -282,6 +286,7 @@ class Field(FieldMixin):
 
     def __set__(self, instance, value):
         instance._fields[self] = value
+        instance._clean = False
 
 class Rel(FieldMixin):
     _is_attr = True
@@ -321,6 +326,7 @@ class Rel(FieldMixin):
             instance._rels[self] = [value]
         if self.auto_fetch:
             self._fetch(instance)
+        instance._clean = False
 
     def _fetch(self, instance):
         val = instance._rels[self]
@@ -330,8 +336,7 @@ class Rel(FieldMixin):
 
     def _check_value(self, value):
         def check(v):
-            return isinstance(v, self._type) or (
-                isinstance(v, six.string_types) and v.startswith(self._type._collection_name))
+            return isinstance(v, self._type) or isinstance(v, six.string_types)
 
         ret = True
         if self.islist and not isinstance(value, list):
@@ -355,6 +360,13 @@ class Rel(FieldMixin):
         else:
             ret = v._id
         return ret
+
+    def save(self, instance, force=False):
+        objs = instance._rels[self]
+        for o in objs:
+            if not o._is_clean() or force:
+                o.save()
+
 
 
 class Edge(object):
@@ -439,6 +451,7 @@ class Edge(object):
             self.collection(instance).delete(i['_id'])
         if self in instance._edges:
             del instance._edges[self]
+
 
 
     def _doc(self, instance, full_object=False, **kwargs):

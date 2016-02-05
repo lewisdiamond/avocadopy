@@ -3,6 +3,10 @@ import six
 from avocadopy import connection
 from avocadopy.tests import db, TestCase
 from avocadopy import odm
+try:
+    import unittest.mock as mock
+except ImportError:
+    import mock
 
 class TestRel(TestCase):
 
@@ -57,12 +61,16 @@ class TestRel(TestCase):
         l2.t.append(t2)
         self.assertEqual(len(l1.t), 0)
         l1.t = [t, t2]
+        t.save = mock.MagicMock(return_value=t, side_effect=t.save)
         l1.save()
+        self.assertEqual(t.save.call_count, 1)
+        l1.save()
+        self.assertEqual(t.save.call_count, 1)
 
         l1_ = self.L.get(l1._id)
         self.assertEqual(l1_.name, l1.name)
-        six.assertCountEqual(self, l1.t[0]._id, l1_.t[0]._id)
-        six.assertCountEqual(self, l1.t[1]._id, l1_.t[1]._id)
+        self.assertEqual(l1.t[0]._id, l1_.t[0]._id)
+        self.assertEqual(l1.t[1]._id, l1_.t[1]._id)
 
         l1.t.remove(t)
         l1.save()

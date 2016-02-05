@@ -2,6 +2,11 @@ import unittest
 from avocadopy import connection
 from avocadopy.tests import db, TestCase
 from avocadopy import odm
+try:
+    import unittest.mock as mock
+except ImportError:
+    import mock
+
 
 class TestEdge(TestCase):
 
@@ -78,13 +83,13 @@ class TestEdge(TestCase):
         self.assertEqual(arya_.knows[1].name, 'Sam')
         arya_.knows = [self.sam]
         arya_.save()
+        arya_.save() #test double save
 
         arya_ = Person.get(arya._id)
         self.assertEqual(len(arya_.knows), 1)
         self.assertEqual(arya_.knows[0].name, 'Sam')
-        arya_.knows = [self.jon]
-        arya_.save()
-        arya_.save()
+
+
 
 
     def tearDown(self):
