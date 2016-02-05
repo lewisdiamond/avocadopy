@@ -364,7 +364,7 @@ class Rel(FieldMixin):
     def save(self, instance, force=False):
         objs = instance._rels[self]
         for o in objs:
-            if not o._is_clean() or force:
+            if o is not None and (not o._is_clean() or force):
                 o.save()
 
 
