@@ -225,8 +225,13 @@ class Base(six.with_metaclass(OdmMeta, object)):
     def update(self):
         return self._save(True)
 
+    def _delete_rels(self):
+        for v in self._rels.keys():
+            v.delete(self)
+
     def delete(self):
         self._collection.delete(self._id)
+        self._delete_rels()
         self._delete_edges()
 
     def _delete_edges(self):
@@ -366,6 +371,12 @@ class Rel(FieldMixin):
         for o in objs:
             if o is not None and (not o._is_clean() or force):
                 o.save()
+
+    def delete(self, instance):
+        objs = instance._rels[self]
+        for o in objs:
+            if o is not None:
+                o.delete()
 
 
 

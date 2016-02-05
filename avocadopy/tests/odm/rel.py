@@ -50,7 +50,8 @@ class TestRel(TestCase):
         self.assertEqual(_t.name, "test")
 
         _v.delete()
-        _t.delete()
+        with self.assertRaises(IOError):
+            _t.delete()
 
     def test_fetch_rel_list(self):
         t = self.T(name="content")
@@ -82,7 +83,28 @@ class TestRel(TestCase):
 
         t.delete()
         t2.delete()
-        l1.delete()
+        with self.assertRaises(IOError):
+            l1.delete()
+
+
+    def test_delete_rel(self):
+        v1 = self.V(name="Arya Stark")
+        t1 = self.T(name="Arry")
+        t2 = self.T(name="No One")
+
+        v1.t = t1
+        v1.save()
+
+        _v1 = self.V.get(v1._id)
+        _t1 = _v1.t
+        self.assertEqual(_t1._id, t1._id)
+        _v1.delete()
+        with self.assertRaises(KeyError):
+            _v1 = self.V.get(v1._id)
+        with self.assertRaises(KeyError):
+            _t1 = self.T.get(_t1._id)
+
+
 
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestRel)
