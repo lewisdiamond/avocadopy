@@ -1,6 +1,6 @@
 import requests
 import json
-from avocadopy import base, batch_request
+from avocadopy import base, batch_request, errors
 try:
     from urllib.parse import urljoin
 except ImportError:
@@ -114,7 +114,8 @@ class Collection(base.List, base.Attr, CreateIndexMixin, TruncateCollectionMixin
         resp = self.session.send(req)
         if resp.status_code >= 200 and resp.status_code < 300:
             json_ = resp.json()
-            del json_['error']
+            if 'error' in json_:
+                del json_['error']
             return json_['_id'] if not full_resp else json_
         elif resp.status_code == 400:
             raise ValueError("Invalid document", doc)
@@ -131,7 +132,9 @@ class Collection(base.List, base.Attr, CreateIndexMixin, TruncateCollectionMixin
                                 ,params={'policy':'error'}
                                 ).prepare()
         resp = self.session.send(req)
-        if resp.status_code > 299:
+        if resp.status_code == 404:
+            raise errors.e404("Missing document or collection")
+        elif resp.status_code > 299:
             raise IOError(resp.status_code, resp.json()['errorMessage'])
         else:
             return resp.json() if full_resp else resp.json()['_id']
@@ -143,7 +146,9 @@ class Collection(base.List, base.Attr, CreateIndexMixin, TruncateCollectionMixin
                                        self._url_document) + '/' + self._make_id(id)
                                ).prepare()
         resp = self.session.send(req)
-        if resp.status_code > 299:
+        if resp.status_code == 404:
+            raise errors.e404('Missing document or collection')
+        elif resp.status_code > 299:
             raise IOError(resp.status_code, resp.json()['errorMessage'])
 
     def patch(self, doc, id, keepNull=False, mergeObjects=False, full_resp=False):
@@ -154,7 +159,9 @@ class Collection(base.List, base.Attr, CreateIndexMixin, TruncateCollectionMixin
                                params={'keepNull':keepNull, 'mergeObjects':mergeObjects}
                                ).prepare()
         resp = self.session.send(req)
-        if resp.status_code > 299:
+        if resp.status_code == 404:
+            raise errors.e404('Missing document or collection')
+        elif resp.status_code > 299:
             raise IOError(resp.status_code, resp.json()['errorMessage'])
         else:
             return resp.json() if full_resp else resp.json()['_id']
@@ -198,7 +205,7 @@ class Collection(base.List, base.Attr, CreateIndexMixin, TruncateCollectionMixin
         if resp.status_code == 200:
             return resp.json()
         elif resp.status_code == 404:
-            raise KeyError('Document does not exist', item)
+            raise errors.e404('Document does not exist', item)
         else:
             raise IOError(resp.json())
 
@@ -282,7 +289,9 @@ class Edge(base.List, base.Attr, CreateIndexMixin, TruncateCollectionMixin):
         req = requests.Request('DELETE',
                                 self._edge_url + item).prepare()
         resp = self.session.send(req)
-        if resp.status_code > 299:
+        if res.status_code == 404:
+            raise errors.e404("Missing document")
+        elif resp.status_code > 299:
             raise IOError("Failed to delete edge", resp.json()["errorMessage"])
         else:
             return self

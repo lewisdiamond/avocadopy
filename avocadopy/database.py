@@ -48,7 +48,7 @@ class Database(base.List, base.Attr):
         :returns: a list of available collection names
 
         """
-        return self._list(self._session, self._list_collections, lambda x: x['names'] )
+        return self._list(self._session, self._list_collections, lambda x: {r['name']: r for r in x['result']})
 
 
     def __getitem__(self, item):
