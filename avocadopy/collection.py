@@ -240,7 +240,7 @@ class Edge(base.List, base.Attr, CreateIndexMixin, TruncateCollectionMixin):
 
     """A collection"""
     _url_edges = "_api/edges/"
-    _url_edge = "_api/edge/"
+    _url_edge = "_api/document/"
 
     def __init__(self, url, session, name):
         """Initialize the connection
@@ -267,13 +267,12 @@ class Edge(base.List, base.Attr, CreateIndexMixin, TruncateCollectionMixin):
 
 
     def save(self, _from, to, doc=None, full_resp=False):
+        doc = {"_from": _from, "_to": to}
         req = requests.Request('POST'
                                 , self._edge_url
                                 , params={
                                     'collection': self.name,
-                                    'createCollection': True,
-                                    'from': _from,
-                                    'to':to
+                                    'createCollection': True
                                 }
                                 ,json=doc).prepare()
         resp = self.session.send(req)
@@ -282,14 +281,13 @@ class Edge(base.List, base.Attr, CreateIndexMixin, TruncateCollectionMixin):
             raise IOError("Failed to create edge", resp.json()["errorMessage"])
         else:
             ret = resp.json()
-            del ret['error']
             return ret if full_resp else ret['_id']
 
     def delete(self, item):
         req = requests.Request('DELETE',
                                 self._edge_url + item).prepare()
         resp = self.session.send(req)
-        if res.status_code == 404:
+        if resp.status_code == 404:
             raise errors.e404("Missing document")
         elif resp.status_code > 299:
             raise IOError("Failed to delete edge", resp.json()["errorMessage"])
